@@ -16,18 +16,11 @@ typedef unsigned int uint;
 typedef std::array<uint, 2> uint2;
 
 // -1 means non deterministic
-#define SEED() 1
+#define SEED() 435
 
-#define PRINT_FRAMES_2D() true
-#define NUM_FRAMES_2D() 30  // 0 to save all frames
-static const uint2 c_imageSizes2D[] = { { 64, 64 } };//, { 128, 128 }, { 256, 256 }, { 512, 512 }, { 640, 480 } };
-
-template <typename T>
-T Frac(T f)
-{
-	return std::fmod(f, T(1.0));
-}
-
+#define NUM_FRAMES() 10  // 0 to save all frames
+static const uint2 c_imageSizes2D[] = { { 64, 64 }, { 128, 128 }, { 256, 256 }, { 512, 512 } };
+ 
 template <typename T>
 T Clamp(T value, T themin, T themax)
 {
@@ -62,22 +55,17 @@ void DoTest2D_Single(const uint2& dims, const LAMBDA& lambda)
 
 void DoTest2D(const uint2& dims, uint seed)
 {
-	printf("========== 2D: %u x %u ==========\n\n", dims[0], dims[1]);
-
-	// TODO: make this work. only save 30 frames, for example. it'll make a nice gif or something.
-	// TODO: maybe get rid of video stuff, and just make gifs?
-	uint numVideoFrames = ((NUM_FRAMES_2D() > 0) ? NUM_FRAMES_2D() : dims[0] * dims[1]);
-
-	// Hilbert
 	std::vector<unsigned char> image(dims[0] * dims[1], 0);
 	std::vector<unsigned char> image2(dims[0] * dims[1], 0);
 
+	printf("Hilbert %u x %u: ", dims[0], dims[1]);
+
 	LDShuffle shuffle(dims[0] * dims[1], seed);
 
-	printf("Hilbert (%u): ", shuffle.GetCoprime());
+	int frameIndex = 0;
 
 	DoTest2D_Single(dims,
-		[&dims, &image, &image2, &shuffle](uint index, float percent)
+		[&dims, &image, &image2, &shuffle, &frameIndex](uint index, float percent)
 		{
 			// Get the shuffled index
 			uint shuffledIndex = shuffle.GetValueAtIndex(index);
@@ -94,11 +82,31 @@ void DoTest2D(const uint2& dims, uint seed)
 			image[ret[1] * dims[0] + ret[0]] = (unsigned char)Clamp(percent * 255.0f, 0.0f, 255.0f);
 			image2[ret[1] * dims[0] + ret[0]] = 255;
 
-			if (PRINT_FRAMES_2D())
+			bool saveFrame = false;
+
+			if (NUM_FRAMES() == 0)
+			{
+				saveFrame = true;
+			}
+			else
+			{
+				saveFrame |= (index == 0); // Save the first frame
+				saveFrame |= (index == dims[0] * dims[1] - 1); // Save the last frame
+
+				if (index > 0)
+				{
+					int lastSection = (index - 1) * NUM_FRAMES() / (dims[0] * dims[1]);
+					int thisSection = index * NUM_FRAMES() / (dims[0] * dims[1]);
+					saveFrame |= (lastSection != thisSection);
+				}
+			}
+
+			if (saveFrame)
 			{
 				char fileName[256];
-				sprintf_s(fileName, "out/Hilbert_%u_%u_%u.png", dims[0], dims[1], index + 1);
+				sprintf_s(fileName, "out/Hilbert_%u_%u_%u.png", dims[0], dims[1], frameIndex);
 				stbi_write_png(fileName, (int)dims[0], (int)dims[1], 1, image2.data(), 0);
+				frameIndex++;
 			}
 
 			return ret;
@@ -129,9 +137,10 @@ int main(int argc, char** argv)
 /*
 TODO:
 - need to clean all this stuff up
-- should we integrate an image and graph white noise (shuffled) vs this? 
+- should we integrate an image and graph white noise (shuffled) vs this?  maybe with multiple seeds
 - show how to invert it
 - write blog post
  - include DFT (from gigi?)
+ - needs to be a power of 2, how you wrote it. would need to adapt the hilbert code for non power of 2
 
 */
