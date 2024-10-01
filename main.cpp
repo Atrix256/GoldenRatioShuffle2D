@@ -6,6 +6,7 @@
 #include <array>
 #include <direct.h>
 #include "Hilbert.h"
+#include "ZOrder.h"
 #include "LDShuffle.h"
 
 #define STB_IMAGE_WRITE_IMPLEMENTATION
@@ -18,7 +19,7 @@ typedef std::array<uint, 2> uint2;
 #define SEED() 435
 
 #define NUM_FRAMES() 10  // 0 to save all frames
-static const uint2 c_imageSizes2D[] = { {2048, 2048} };// { { 64, 64 }, { 128, 128 }, { 256, 256 }, { 512, 512 }, { 1024, 1024 } };
+static const uint2 c_imageSizes2D[] = { { 64, 64 }, { 128, 128 }, { 256, 256 }, { 512, 512 }, { 1024, 1024 }, { 2048, 2048 } };
  
 template <typename T>
 T Clamp(T value, T themin, T themax)
@@ -31,85 +32,177 @@ T Clamp(T value, T themin, T themax)
 		return value;
 }
 
+/*
+template <typename LAMBDA>
+void DoTest2D_SingleTest()
+{
+
+}
+*/
+
 void DoTest2D(const uint2& dims, uint seed)
 {
-	std::vector<unsigned char> image(dims[0] * dims[1], 0);
-	std::vector<unsigned char> image2(dims[0] * dims[1], 0);
-
-	LDShuffle shuffle(dims[0] * dims[1], seed);
-
-	printf("Hilbert [%u] %u x %u: ", shuffle.GetCoprime(), dims[0], dims[1]);
-
-	int frameIndex = 0;
-
-	std::vector<int> visitCount(dims[0] * dims[1], 0);
-
-	int errorCount = 0;
-
-	for (uint index = 0; index < dims[0] * dims[1]; ++index)
+	// Hilbert
 	{
-		// Get the shuffled index
-		uint shuffledIndex = shuffle.GetValueAtIndex(index);
+		std::vector<unsigned char> image(dims[0] * dims[1], 0);
+		std::vector<unsigned char> image2(dims[0] * dims[1], 0);
 
-		// Convert that to a 2d coordinate using the hilbert curve
-		int x = 0;
-		int y = 0;
-		Hilbert::d2xy(dims[0] * dims[1], shuffledIndex, &x, &y);
+		LDShuffle shuffle(dims[0] * dims[1], seed);
 
-		uint shuffledIndexRoundTrip = Hilbert::xy2d(dims[0] * dims[1], x, y);
-		if (shuffledIndexRoundTrip != shuffledIndex)
-			printf("Hilbert inversion failed!\n");
+		printf("Hilbert [%u] %u x %u: ", shuffle.GetCoprime(), dims[0], dims[1]);
 
-		// make the return value
-		uint2 ret = { uint(x), uint(y) };
+		int frameIndex = 0;
 
-		// draw the point
-		float percent = float(index) / float(dims[0] * dims[1] - 1);
-		image[ret[1] * dims[0] + ret[0]] = (unsigned char)Clamp(percent * 255.0f, 0.0f, 255.0f);
-		image2[ret[1] * dims[0] + ret[0]] = 255;
+		std::vector<int> visitCount(dims[0] * dims[1], 0);
 
-		// determine whether we should save this frame out
-		bool saveFrame = false;
-		if (NUM_FRAMES() == 0)
+		int errorCount = 0;
+
+		for (uint index = 0; index < dims[0] * dims[1]; ++index)
 		{
-			saveFrame = true;
-		}
-		else
-		{
-			saveFrame |= (index == 0); // Save the first frame
-			saveFrame |= (index == dims[0] * dims[1] - 1); // Save the last frame
+			// Get the shuffled index
+			uint shuffledIndex = shuffle.GetValueAtIndex(index);
 
-			if (index > 0)
+			// Convert that to a 2d coordinate using the hilbert curve
+			int x = 0;
+			int y = 0;
+			Hilbert::d2xy(dims[0] * dims[1], shuffledIndex, &x, &y);
+
+			uint shuffledIndexRoundTrip = Hilbert::xy2d(dims[0] * dims[1], x, y);
+			if (shuffledIndexRoundTrip != shuffledIndex)
+				printf("Hilbert inversion failed!\n");
+
+			// make the return value
+			uint2 ret = { uint(x), uint(y) };
+
+			// draw the point
+			float percent = float(index) / float(dims[0] * dims[1] - 1);
+			image[ret[1] * dims[0] + ret[0]] = (unsigned char)Clamp(percent * 255.0f, 0.0f, 255.0f);
+			image2[ret[1] * dims[0] + ret[0]] = 255;
+
+			// determine whether we should save this frame out
+			bool saveFrame = false;
+			if (NUM_FRAMES() == 0)
 			{
-				int lastSection = (index - 1) * NUM_FRAMES() / (dims[0] * dims[1]);
-				int thisSection = index * NUM_FRAMES() / (dims[0] * dims[1]);
-				saveFrame |= (lastSection != thisSection);
+				saveFrame = true;
 			}
+			else
+			{
+				saveFrame |= (index == 0); // Save the first frame
+				saveFrame |= (index == dims[0] * dims[1] - 1); // Save the last frame
+
+				if (index > 0)
+				{
+					int lastSection = (index - 1) * NUM_FRAMES() / (dims[0] * dims[1]);
+					int thisSection = index * NUM_FRAMES() / (dims[0] * dims[1]);
+					saveFrame |= (lastSection != thisSection);
+				}
+			}
+
+			// save it if so
+			if (saveFrame)
+			{
+				char fileName[256];
+				sprintf_s(fileName, "out/Hilbert_%u_%u_%u.png", dims[0], dims[1], frameIndex);
+				stbi_write_png(fileName, (int)dims[0], (int)dims[1], 1, image2.data(), 0);
+				frameIndex++;
+			}
+
+			// Check for hitting any values more than once
+			uint shuffleItemFlat = ret[1] * dims[0] + ret[0];
+			visitCount[shuffleItemFlat]++;
+			if (visitCount[shuffleItemFlat] > 1)
+				errorCount++;
 		}
 
-		// save it if so
-		if (saveFrame)
-		{
-			char fileName[256];
-			sprintf_s(fileName, "out/Hilbert_%u_%u_%u.png", dims[0], dims[1], frameIndex);
-			stbi_write_png(fileName, (int)dims[0], (int)dims[1], 1, image2.data(), 0);
-			frameIndex++;
-		}
+		// Write out the ordering of the texture
+		char fileName[256];
+		sprintf_s(fileName, "out/Hilbert_%u_%u.png", dims[0], dims[1]);
+		stbi_write_png(fileName, (int)dims[0], (int)dims[1], 1, image.data(), 0);
 
-		// Check for hitting any values more than once
-		uint shuffleItemFlat = ret[1] * dims[0] + ret[0];
-		visitCount[shuffleItemFlat]++;
-		if (visitCount[shuffleItemFlat] > 1)
-			errorCount++;
+		// report how many duplicates were encountered
+		printf("%i Duplicates (%0.2f%%)\n\n", errorCount, 100.0f * float(errorCount) / float(dims[0] * dims[1]));
 	}
 
-	// Write out the ordering of the texture
-	char fileName[256];
-	sprintf_s(fileName, "out/Hilbert_%u_%u.png", dims[0], dims[1]);
-	stbi_write_png(fileName, (int)dims[0], (int)dims[1], 1, image.data(), 0);
+	// Z order
+	{
+		std::vector<unsigned char> image(dims[0] * dims[1], 0);
+		std::vector<unsigned char> image2(dims[0] * dims[1], 0);
 
-	// report how many duplicates were encountered
-	printf("%i Duplicates (%0.2f%%)\n\n", errorCount, 100.0f * float(errorCount) / float(dims[0] * dims[1]));
+		LDShuffle shuffle(dims[0] * dims[1], seed);
+
+		printf("ZOrder [%u] %u x %u: ", shuffle.GetCoprime(), dims[0], dims[1]);
+
+		int frameIndex = 0;
+
+		std::vector<int> visitCount(dims[0] * dims[1], 0);
+
+		int errorCount = 0;
+
+		for (uint index = 0; index < dims[0] * dims[1]; ++index)
+		{
+			// Get the shuffled index
+			uint shuffledIndex = shuffle.GetValueAtIndex(index);
+
+			// Convert that to a 2d coordinate using the Z order curve
+			unsigned int x = 0;
+			unsigned int y = 0;
+			ZOrder::OneDToTwoD(shuffledIndex, x, y);
+
+			uint shuffledIndexRoundTrip = ZOrder::TwoDToOneD(x, y);
+			if (shuffledIndexRoundTrip != shuffledIndex)
+				printf("ZOrder inversion failed!\n");
+
+			// make the return value
+			uint2 ret = { uint(x), uint(y) };
+
+			// draw the point
+			float percent = float(index) / float(dims[0] * dims[1] - 1);
+			image[ret[1] * dims[0] + ret[0]] = (unsigned char)Clamp(percent * 255.0f, 0.0f, 255.0f);
+			image2[ret[1] * dims[0] + ret[0]] = 255;
+
+			// determine whether we should save this frame out
+			bool saveFrame = false;
+			if (NUM_FRAMES() == 0)
+			{
+				saveFrame = true;
+			}
+			else
+			{
+				saveFrame |= (index == 0); // Save the first frame
+				saveFrame |= (index == dims[0] * dims[1] - 1); // Save the last frame
+
+				if (index > 0)
+				{
+					int lastSection = (index - 1) * NUM_FRAMES() / (dims[0] * dims[1]);
+					int thisSection = index * NUM_FRAMES() / (dims[0] * dims[1]);
+					saveFrame |= (lastSection != thisSection);
+				}
+			}
+
+			// save it if so
+			if (saveFrame)
+			{
+				char fileName[256];
+				sprintf_s(fileName, "out/ZOrder_%u_%u_%u.png", dims[0], dims[1], frameIndex);
+				stbi_write_png(fileName, (int)dims[0], (int)dims[1], 1, image2.data(), 0);
+				frameIndex++;
+			}
+
+			// Check for hitting any values more than once
+			uint shuffleItemFlat = ret[1] * dims[0] + ret[0];
+			visitCount[shuffleItemFlat]++;
+			if (visitCount[shuffleItemFlat] > 1)
+				errorCount++;
+		}
+
+		// Write out the ordering of the texture
+		char fileName[256];
+		sprintf_s(fileName, "out/ZOrder_%u_%u.png", dims[0], dims[1]);
+		stbi_write_png(fileName, (int)dims[0], (int)dims[1], 1, image.data(), 0);
+
+		// report how many duplicates were encountered
+		printf("%i Duplicates (%0.2f%%)\n\n", errorCount, 100.0f * float(errorCount) / float(dims[0] * dims[1]));
+	}
 }
 
 int main(int argc, char** argv)
@@ -130,7 +223,9 @@ int main(int argc, char** argv)
 
 /*
 TODO:
-- need to clean all this stuff up
+- could also add r2 back in.
+- could also try z order. You just interleave bits: https://en.wikipedia.org/wiki/Z-order_curve
+ - can re-centralize tests. make it easier for people to test their own?
 - why does hilbert 1024 look so strange, with clumps? 4096 looks ok. 2048 looks strange too. maybe just note it for now and move on.
 - should we integrate an image and graph white noise (shuffled) vs this?  maybe with multiple seeds
 - show how to invert it.

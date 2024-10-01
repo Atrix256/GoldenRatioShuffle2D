@@ -12,6 +12,7 @@
     <ClInclude Include="stb\stb_image.h">
       <Filter>stb</Filter>
     </ClInclude>
+    <ClInclude Include="ZOrder.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="stb">
