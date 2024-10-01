@@ -29,6 +29,18 @@ public:
 		uint GCD = ExtendedEuclidianAlgorithm(m_coprime, m_numItems, s, m_stepsToUnity);
 	}
 
+	LDShuffle(uint numItems, uint seed, uint coprime)
+		: m_numItems(numItems)
+		, m_seed(seed% numItems)
+		, m_currentItem(seed% numItems)
+	{
+		m_coprime = coprime;
+
+		// Calculate "steps to unity" which is needed for inversion
+		uint s;
+		uint GCD = ExtendedEuclidianAlgorithm(m_coprime, m_numItems, s, m_stepsToUnity);
+	}
+
 	uint Next()
 	{
 		uint ret = m_currentItem;
