@@ -3,4 +3,16 @@
   <ItemGroup>
     <ClCompile Include="main.cpp" />
   </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Hilbert.h" />
+    <ClInclude Include="LDShuffle.h" />
+    <ClInclude Include="stb\stb_image_write.h">
+      <Filter>stb</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="stb">
+      <UniqueIdentifier>{759d032e-bafe-41c9-b1e8-5d6c72e1a2c8}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
 </Project>
