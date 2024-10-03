@@ -232,6 +232,7 @@ void DoTest2D(const uint2& dims, uint seed)
 		);
 	}
 
+	/*
 	// R2 sequence - V1
 	// Do the normal R2 sequence, but convert it to integers
 	{
@@ -254,6 +255,7 @@ void DoTest2D(const uint2& dims, uint seed)
 			}
 		);
 	}
+	*/
 
 	/*
 	// R2 sequence - V2
