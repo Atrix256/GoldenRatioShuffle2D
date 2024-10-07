@@ -232,6 +232,42 @@ void DoTest2D(const uint2& dims, uint seed)
 		);
 	}
 
+	// 1D Shuffle
+	// Use a standard 1D LDS Shuffle, and just convert that to 2d (index % width, index / width)
+	{
+		LDShuffle shuffle(dims[0] * dims[1], seed);
+		DoTest2D_SingleTest("1DShuffle", dims,
+			[&shuffle, &dims](uint index)
+			{
+				// Get the shuffled index
+				uint shuffledIndex = shuffle.GetValueAtIndex(index);
+
+				// Convert that to a 2d coordinate
+				uint x = shuffledIndex % dims[0];
+				uint y = shuffledIndex / dims[0];
+
+				return uint2{ x, y };
+			}
+		);
+	}
+
+	// White noise
+	{
+		std::mt19937 rng(seed);
+
+		std::vector<uint2> points(dims[0] * dims[1]);
+		for (uint i = 0; i < (uint)points.size(); ++i)
+			points[i] = uint2{ i % dims[0], i / dims[0] };
+		std::shuffle(points.begin(), points.end(), rng);
+
+		DoTest2D_SingleTest("White", dims,
+			[&points](uint index)
+			{
+				return points[index];
+			}
+		);
+	}
+
 	/*
 	// R2 sequence - V1
 	// Do the normal R2 sequence, but convert it to integers
@@ -331,10 +367,11 @@ void DoIntegrationTest(uint seed)
 
 	std::mt19937 rng(seed);
 
-	std::vector<float> mse[3];
+	std::vector<float> mse[4];
 	mse[0].resize(512 * 512, 0.0f);
 	mse[1].resize(512 * 512, 0.0f);
 	mse[2].resize(512 * 512, 0.0f);
+	mse[3].resize(512 * 512, 0.0f);
 
 	int lastPercent = -1;
 	for (uint testIndex = 0; testIndex < c_numIntegrationtests; ++testIndex)
@@ -357,7 +394,7 @@ void DoIntegrationTest(uint seed)
 		// One low discrepancy shuffler will be used by both the Hilbert and ZOrder versions
 		LDShuffle shuffle(512 * 512, rng());
 
-		float avgs[3] = { 0.0f, 0.0f, 0.0f };
+		float avgs[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
 		for (size_t sampleIndex = 0; sampleIndex < 512 * 512; ++sampleIndex)
 		{
 			// white noise
@@ -384,8 +421,14 @@ void DoIntegrationTest(uint seed)
 				avgs[2] = Lerp(avgs[2], float(pixels[readIndex]) / 255.0f, 1.0f / float(sampleIndex + 1));
 			}
 
+			// 1D Shuffler without a curve
+			{
+				uint readIndex = shuffledIndex;
+				avgs[3] = Lerp(avgs[3], float(pixels[readIndex]) / 255.0f, 1.0f / float(sampleIndex + 1));
+			}
+
 			// Keep track of MSE across tests
-			for (int noiseIndex = 0; noiseIndex < 3; ++noiseIndex)
+			for (int noiseIndex = 0; noiseIndex < 4; ++noiseIndex)
 			{
 				float error = std::abs(avgs[noiseIndex] - average);
 				mse[noiseIndex][sampleIndex] = Lerp(mse[noiseIndex][sampleIndex], error * error, 1.0f / float(testIndex + 1));
@@ -397,10 +440,10 @@ void DoIntegrationTest(uint seed)
 	// Write the data out
 	FILE* file = nullptr;
 	fopen_s(&file, "out/_integration.csv", "wb");
-	fprintf(file, "\"Index\",\"White\",\"Hilbert\",\"ZOrder\"\n");
+	fprintf(file, "\"Index\",\"White\",\"Hilbert\",\"ZOrder\",\"1DShuffler\"\n");
 	for (uint sampleIndex = 0; sampleIndex < 512 * 512; sampleIndex += 512)
 	{
-		fprintf(file, "\"%u\",\"%f\",\"%f\",\"%f\"\n", sampleIndex+1, std::sqrt(mse[0][sampleIndex]), std::sqrt(mse[1][sampleIndex]), std::sqrt(mse[2][sampleIndex]));
+		fprintf(file, "\"%u\",\"%f\",\"%f\",\"%f\",\"%f\"\n", sampleIndex+1, std::sqrt(mse[0][sampleIndex]), std::sqrt(mse[1][sampleIndex]), std::sqrt(mse[2][sampleIndex]), std::sqrt(mse[3][sampleIndex]));
 	}
 	fclose(file);
 
