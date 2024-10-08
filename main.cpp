@@ -269,6 +269,22 @@ void DoTest2D(const uint2& dims, uint seed)
 	}
 
 	/*
+	// Random (white noise, but not a shuffle!)
+	{
+		std::mt19937 rng(seed);
+
+		std::uniform_int_distribution<int> dist(0, dims[0] - 1);
+
+		DoTest2D_SingleTest("Rand", dims,
+			[&dist, &rng](uint index)
+			{
+				return uint2{ (uint)dist(rng),(uint)dist(rng) };
+			}
+		);
+	}
+	*/
+
+	/*
 	// R2 sequence - V1
 	// Do the normal R2 sequence, but convert it to integers
 	{
@@ -470,17 +486,3 @@ int main(int argc, char** argv)
 
 	return 0;
 }
-
-
-/*
-TODO:
-
- Blog:
- - show how converting R2 to int has a lot of overlaps
- - needs to be a power of 2, how you wrote it. would need to adapt the hilbert code for non power of 2
- - or break the image into powers of 2 and shuffle each individually, but use a weighted round robin to visit each? (could link to low discrepancy weighted round robin)
-  * Motivation - when you want to sample something without repeats, possibly exhaustively, but get 'good sampling' characteristics
- - why does hilbert 1024 look so strange, with clumps? 4096 looks ok. 2048 looks strange too. maybe just note it for now and move on.
-  - hilbert is such that nearby 1d points are nearby in 2d. The converse may not be true, that distance 1d points are always distant in 2D?
- - show how to invert it.
-*/
