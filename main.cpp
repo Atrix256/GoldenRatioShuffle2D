@@ -368,18 +368,21 @@ void DoTest2D(const uint2& dims, uint seed)
 	// This worked pretty decently at some screen resolutions but not others.
 }
 
-void DoIntegrationTest(uint seed)
+void DoIntegrationTest(uint seed, const char* fileNameBase)
 {
+	char fileName[4096];
+	sprintf_s(fileName, "%s.png", fileNameBase);
+
 	int w, h, c;
-	unsigned char* pixels = stbi_load("cabin.png", &w, &h, &c, 1);
+	unsigned char* pixels = stbi_load(fileName, &w, &h, &c, 1);
 
 	// calculate the actual average value of the image
 	float average = 0.0f;
 	for (size_t i = 0; i < 512 * 512; ++i)
 		average = Lerp(average, float(pixels[i]) / 255.0f, 1.0f / float(i + 1));
-	//printf("Actual average: %f\n", average);
+	printf("Actual average: %f\n", average);
 
-	printf("Integrating....\n");
+	printf("Integrating %s....\n", fileName);
 
 	std::mt19937 rng(seed);
 
@@ -451,11 +454,13 @@ void DoIntegrationTest(uint seed)
 			}
 		}
 	}
-	printf("\r100%%");
+	printf("\r100%%\n\n");
 
 	// Write the data out
+	char csvFileName[4096];
+	sprintf_s(csvFileName, "out/_integration_%s.csv", fileNameBase);
 	FILE* file = nullptr;
-	fopen_s(&file, "out/_integration.csv", "wb");
+	fopen_s(&file, csvFileName, "wb");
 	fprintf(file, "\"Index\",\"White\",\"Hilbert\",\"ZOrder\",\"1DShuffler\"\n");
 	for (uint sampleIndex = 0; sampleIndex < 512 * 512; sampleIndex += 512)
 	{
@@ -482,7 +487,9 @@ int main(int argc, char** argv)
 		DoTest2D(size, seed);
 	}
 
-	DoIntegrationTest(seed);
+	DoIntegrationTest(seed, "cabin");
+	DoIntegrationTest(seed, "Blue512x512");
+	DoIntegrationTest(seed, "White512x512");
 
 	return 0;
 }
